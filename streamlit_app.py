@@ -248,8 +248,11 @@ def export_csv(student_id, semester):
     writer.writerow(['Дисциплина', 'Посещаемость (20)', 'Текущий и рубежный контроль (20)',
                      'Творческий рейтинг (20)', 'Экзамен (40)', 'Итог', 'Оценка'])
     for _, row in scores_df.iterrows():
-        writer.writerow([row['Дисциплина'], row['Посещаемость'], row['Текущий и рубежный контроль'],
-                         row['Творческий рейтинг'], row['Экзамен'], row['Итог'], row['Оценка']])
+        writer.writerow([row['Дисциплина'], format_score(row['Посещаемость']),
+                         format_score(row['Текущий и рубежный контроль']),
+                         format_score(row['Творческий рейтинг']),
+                         format_score(row['Экзамен']),
+                         format_score(row['Итог']), row['Оценка']])
     if len(scores_df) > 0:
         avg_total = scores_df['Итог'].astype(float).mean()
         avg_grade = scores_df['Оценка'].mean()
@@ -281,7 +284,6 @@ if menu == "Студенты":
     if students_df.empty:
         st.info("Пока нет студентов. Добавьте первого!")
     else:
-        # Надёжный выбор по ID
         student_options = {f"{row['fio']} ({row['group_name']})": row['id'] for _, row in students_df.iterrows()}
         selected_label = st.selectbox("Выберите студента", list(student_options.keys()))
         if selected_label:
@@ -292,27 +294,27 @@ if menu == "Студенты":
             else:
                 st.subheader(f"{info[0]} | Группа: {info[1]}")
 
-                # Семестр
                 semesters = get_semesters()
                 sem_options = ["Все семестры"] + [f"{s} семестр" for s in semesters]
                 selected_sem = st.selectbox("Семестр", sem_options)
                 semester = None if selected_sem == "Все семестры" else int(selected_sem.split()[0])
 
-                # Загрузка оценок
                 scores_df = load_scores(student_id, semester)
                 if not scores_df.empty:
+                    # Создаём отображаемую копию с форматированием чисел (без .0)
+                    display_df = scores_df.copy()
+                    for col in ['Посещаемость', 'Текущий и рубежный контроль', 'Творческий рейтинг', 'Экзамен', 'Итог']:
+                        display_df[col] = display_df[col].apply(format_score)
                     avg_grade = scores_df['Оценка'].astype(float).mean()
                     st.markdown(f"**Средняя оценка:** {format_score(avg_grade)} (дисциплин: {len(scores_df)})")
-                    st.dataframe(scores_df.style.map(
+                    st.dataframe(display_df.style.map(
                         lambda x: 'color: green' if x == 5 else 'color: blue' if x == 4 else 'color: orange' if x == 3 else 'color: red',
                         subset=['Оценка']), hide_index=True)
-                    # Экспорт CSV – показываем сразу
                     csv_data = export_csv(student_id, semester)
                     st.download_button("📥 Скачать ведомость (CSV)", csv_data, f"student_{student_id}.csv", "text/csv")
                 else:
                     st.info("Нет оценок по выбранному семестру")
 
-                # Кнопки действий
                 col1, col2, col3 = st.columns(3)
                 with col1:
                     if st.button("✏️ Добавить / изменить баллы"):
@@ -324,13 +326,12 @@ if menu == "Студенты":
                     if st.button("📊 График успеваемости"):
                         st.session_state['show_graph'] = True
 
-                # Удалить студента
                 if st.button("❌ Удалить студента"):
                     delete_student(student_id)
                     st.success("Студент удалён")
                     st.rerun()
 
-                # ---------- Модальные блоки (реализованы через expander) ----------
+                # ---------- БЛОК РЕДАКТИРОВАНИЯ / ДОБАВЛЕНИЯ ----------
                 if st.session_state.get('show_edit', False):
                     available_discs = load_disciplines()
                     existing_names = scores_df['Дисциплина'].tolist() if not scores_df.empty else []
@@ -356,7 +357,7 @@ if menu == "Студенты":
                                     st.success("Баллы обновлены")
                                     st.session_state['show_edit'] = False
                                     st.rerun()
-                        else:  # добавить новую
+                        else:
                             disc_name = st.selectbox("Выберите дисциплину", new_discs['name'])
                             disc_id = int(new_discs[new_discs['name'] == disc_name]['id'].values[0])
                             with st.form("add_scores_form"):
@@ -373,6 +374,7 @@ if menu == "Студенты":
                         st.session_state['show_edit'] = False
                         st.rerun()
 
+                # ---------- УДАЛЕНИЕ БАЛЛОВ ----------
                 if st.session_state.get('show_delete', False):
                     if not scores_df.empty:
                         disc_to_del = st.selectbox("Выберите дисциплину для удаления", scores_df['Дисциплина'])
@@ -388,6 +390,7 @@ if menu == "Студенты":
                         st.session_state['show_delete'] = False
                         st.rerun()
 
+                # ---------- ГРАФИК УСПЕВАЕМОСТИ ----------
                 if st.session_state.get('show_graph', False):
                     if not scores_df.empty:
                         fig, ax = plt.subplots(figsize=(10, 5))
