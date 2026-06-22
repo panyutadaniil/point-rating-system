@@ -303,7 +303,7 @@ if menu == "Студенты":
                 if not scores_df.empty:
                     avg_grade = scores_df['Оценка'].astype(float).mean()
                     st.markdown(f"**Средняя оценка:** {format_score(avg_grade)} (дисциплин: {len(scores_df)})")
-                    st.dataframe(scores_df.style.applymap(
+                    st.dataframe(scores_df.style.map(
                         lambda x: 'color: green' if x == 5 else 'color: blue' if x == 4 else 'color: orange' if x == 3 else 'color: red',
                         subset=['Оценка']), hide_index=True)
                     # Экспорт CSV – показываем сразу
