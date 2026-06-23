@@ -239,7 +239,9 @@ def export_csv(student_id, semester):
     info = get_student_info(student_id)
     if info is None:
         return ""
+    # Создаём строку с BOM для корректного отображения русских букв в Excel
     output = io.StringIO()
+    output.write('\ufeff')          # <-- BOM
     writer = csv.writer(output)
     writer.writerow(['Студент', info[0], 'Группа', info[1]])
     if semester:
@@ -248,11 +250,13 @@ def export_csv(student_id, semester):
     writer.writerow(['Дисциплина', 'Посещаемость (20)', 'Текущий и рубежный контроль (20)',
                      'Творческий рейтинг (20)', 'Экзамен (40)', 'Итог', 'Оценка'])
     for _, row in scores_df.iterrows():
-        writer.writerow([row['Дисциплина'], format_score(row['Посещаемость']),
+        writer.writerow([row['Дисциплина'],
+                         format_score(row['Посещаемость']),
                          format_score(row['Текущий и рубежный контроль']),
                          format_score(row['Творческий рейтинг']),
                          format_score(row['Экзамен']),
-                         format_score(row['Итог']), row['Оценка']])
+                         format_score(row['Итог']),
+                         row['Оценка']])
     if len(scores_df) > 0:
         avg_total = scores_df['Итог'].astype(float).mean()
         avg_grade = scores_df['Оценка'].mean()
